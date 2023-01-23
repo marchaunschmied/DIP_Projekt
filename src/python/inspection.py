@@ -1,6 +1,6 @@
 import cv2
 from matplotlib import pyplot as plt
-
+import numpy as np
 import imutils as utils
 import glob
 import initdata as init
@@ -53,10 +53,10 @@ for class_label, defect_type in enumerate(defects):
 
         # opening and closing
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
         cv2.imshow("Opening", opening)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-        closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel, iterations=5)
+        closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel, iterations=2)
         cv2.imshow("Closing", closing)
 
 
@@ -64,28 +64,29 @@ for class_label, defect_type in enumerate(defects):
         cnts = cv2.findContours(closing.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cnts = cvHelper.grab_contours(cnts)
 
-        clone = img.copy()
 
+        rows, cols, channels = img.shape
         # loop over the contours -> we can compute contour porps only for single
         # contour at a time
         for c in cnts:
-            # fit a bounding box to the contour
-            (x, y, w, h) = cv2.boundingRect(c)
-            if w > 150 or h > 150:
-                cv2.rectangle(clone, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            ellipse = cv2.fitEllipse(c)
+            center = (int(ellipse[0][0]), int(ellipse[0][1]))
+            angle = int(ellipse[2])
+            axes = (int(ellipse[1][0] / 2), int(ellipse[1][1] / 2))
 
+            # indi shape 200*124
+            if axes[0] > 30 and axes[1] > 80 or axes[0] > 80 and axes[1] > 30:
+                clone = img.copy()
+                cv2.ellipse(clone, ellipse, (255, 255, 0), 2)
+                cv2.circle(clone, center, 10, (0, 255, 0), -1)
 
-        # show the output image
-        cv2.imshow("Bounding Boxes", clone)
+                M = cv2.getRotationMatrix2D(center, angle, 1)
+                clone = cv2.warpAffine(clone, M, (cols, rows))
+
+                # show the output image
+                cv2.imshow("Contours", clone)
+
         cv2.waitKey(0)
-
-        # # draw the contour and center of the shape on the image
-        # cv2.drawContours(imgCor, [c], -1, (0, 255, 0), 2)
-        # cv2.circle(imgCor, (cX, cY), 7, (255, 255, 255), -1)
-        # cv2.putText(imgCor, "center", (cX - 20, cY - 20),
-        #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-        # cv2.imshow("Contours", imgCor)
 
         cv2.destroyAllWindows()
 
