@@ -21,10 +21,10 @@ template, defects = init.initdata()
 folders = []
 
 
-train_images_o = np.empty([84,288,352], dtype='int8')
-train_labels =  np.empty([84, 1])
-test_images_o =  np.empty([16, 288, 352], dtype='int8')
-test_labels = np.empty([16, 1])
+train_images_o = np.empty([80,288,352], dtype='int8')
+train_labels =  np.empty([80, 1])
+test_images_o =  np.empty([20, 288, 352], dtype='int8')
+test_labels = np.empty([20, 1])
 
 
 directory = '..\..\img'
@@ -44,7 +44,7 @@ for folder in os.listdir(directory):
         folders.append(f)
         #print(folder)
         if folder == '0-Normal':
-            n_train = 28
+            n_train = 24
         else: 
             n_train = 8
 
@@ -57,12 +57,12 @@ for folder in os.listdir(directory):
 
             if cnt_train < n_train:
                 train_images_o[i_train] = img
-                train_labels[i_train] = ord(folder[0])
+                train_labels[i_train] = ord(folder[0]) -48
                 cnt_train = cnt_train + 1
                 i_train = i_train + 1
             else:
                 test_images_o[cnt_test] = img
-                test_labels[cnt_test] = ord(folder[0])
+                test_labels[cnt_test] = ord(folder[0]) -48 
                 cnt_test = cnt_test + 1
             #print(p)
             cnt = cnt + 1
@@ -86,8 +86,8 @@ print(train_imgs.shape)
 test_imgs = test_images_o
 test_imgs = test_imgs.astype('float32') / 255
 
-train_labels.astype('float32')
-test_labels.astype('float32')
+#train_labels.astype('float32')
+#test_labels.astype('float32')
 
 from keras import models, layers
 # network = models.Sequential()
@@ -113,27 +113,34 @@ test_labels = to_categorical(test_labels)
 
 s = 4
 
+# network = models.Sequential()
+# network.add(layers.Conv2D(s, (3,3), activation='relu', input_shape=(288,352,1)))
+# network.add(layers.Conv2D(2*s, (3,3), activation='relu'))
+# network.add(layers.MaxPooling2D((2,2)))
+# network.add(layers.Conv2D(4*s, (3,3), activation='relu'))
+# network.add(layers.Conv2D(4*s, (3,3), activation='relu'))
+# network.add(layers.MaxPooling2D((2,2)))
+# network.add(layers.Flatten())
+# #network.add(layers.Dense(16*s, activation='relu'))
+# #network.add(layers.Dropout(0.5))         # sets input units randomly to zero while training with a frequency of 0.5
+# network.add(layers.Dense(8, activation='sigmoid'))
+# print model architecture
 network = models.Sequential()
-network.add(layers.Conv2D(s, (3,3), activation='relu', input_shape=(288,352,1)))
-network.add(layers.MaxPooling2D((2,2)))
-#network.add(layers.Conv2D(2*s, (3,3), activation='relu'))
-#network.add(layers.MaxPooling2D((2,2)))
-#network.add(layers.Conv2D(4*s, (3,3), activation='relu'))
-#network.add(layers.MaxPooling2D((2,2)))
-network.add(layers.Conv2D(4*s, (3,3), activation='relu'))
+network.add(layers.Conv2D(s, (10,10), activation='relu', input_shape=(288,352,1)))
+network.add(layers.Conv2D(s, (4,4), activation='relu'))
+network.add(layers.MaxPooling2D((3,3)))
+network.add(layers.Conv2D(4*s, (2,2), activation='tanh'))
 network.add(layers.MaxPooling2D((2,2)))
 network.add(layers.Flatten())
-network.add(layers.Dense(16*s, activation='relu'))
-network.add(layers.Dropout(0.5))         # sets input units randomly to zero while training with a frequency of 0.5
-network.add(layers.Dense(56, activation='sigmoid'))
-# print model architecture
+network.add(layers.Dense(8, activation='softmax'))
+
 network.summary()
 
 network.compile(optimizer='rmsprop',
                 loss='binary_crossentropy',
                 metrics=['accuracy'])
 # know train the model using trainings data
-history = network.fit(train_imgs, train_labels, epochs=8, batch_size=2)
+history = network.fit(train_imgs, train_labels, epochs=20, batch_size=8)
 
 
 
@@ -145,6 +152,16 @@ print("============================")
 test_loss, test_acc = network.evaluate(test_imgs, test_labels)
 print(test_loss)
 print(test_acc)
+
+print("============================")
+print("=== PREDICT ===================")
+print("============================")
+
+#print(test_imgs)
+pred = network.predict(test_imgs)
+pred = pred * 100
+np.set_printoptions(precision=0, suppress=True)
+print(pred)
 
 # import kerasHelper
 # kerasHelper.plotAcc(history, smooth=True)
