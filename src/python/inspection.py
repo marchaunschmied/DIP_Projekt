@@ -24,83 +24,9 @@ def preprocessing(img):
     imgCor = utils.shadding(img, imgbackground)
     cv2.imshow("Shading corrected", imgCor)
 
-    imgSmall = img[26:265, 0:352]
+    imgSmall = imgCor[26:265, 0:352]
 
-    imgGrey = cv2.cvtColor(imgCor[26:265, 0:352], cv2.COLOR_BGR2GRAY)
-    cv2.imshow("Grey", imgGrey)
-
-
-
-    #contrast
-
-    img_bw = cv2.threshold(imgGrey, 180, 255, cv2.THRESH_OTSU | cv2.THRESH_BINARY_INV)[1]
-    cv2.imshow("Binary", img_bw)
-
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-    erosion = cv2.erode(img_bw, kernel, iterations=1, borderType=cv2.BORDER_CONSTANT)
-    cv2.imshow("Erosion", erosion)
-
-    dilation = cv2.dilate(erosion, kernel, iterations=1, borderType=cv2.BORDER_CONSTANT)
-    cv2.imshow("Dilation", dilation)
-
-    opening = cv2.morphologyEx(dilation, cv2.MORPH_OPEN, kernel)
-    cv2.imshow("Opening", opening)
-
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
-    closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel, iterations=2)
-    cv2.imshow("Closing", closing)
-
-    # find contours in the thresholded image
-    cnts = cv2.findContours(closing.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cnts = cvHelper.grab_contours(cnts)
-
-    for c in cnts:
-        centroid = imgSmall.copy()
-        M = cv2.moments(c)
-        cX = int(M["m10"] / M["m00"])
-        cY = int(M["m01"] / M["m00"])
-
-
-
-
-
-
-
-
-        # draw the center of the contour on the image
-        cv2.circle(centroid, (cX, cY), 10, (0, 255, 0), -1)
-
-        boxing = imgSmall.copy()
-
-        box = cv2.minAreaRect(c)
-        box = np.int0(cv2.cv.BoxPoints(box) if cvHelper.is_cv2() else cv2.boxPoints(box))
-
-        cv2.drawContours(boxing, [box], -1, (0, 255, 0), 2)
-
-        if len(c) >= 5:
-            elip = imgSmall.copy()
-            cols, rows, channels = imgSmall.shape
-
-            ellipse = cv2.fitEllipse(c)
-            center = (cX, cY)
-            angle = int(ellipse[2])
-            cv2.ellipse(elip, ellipse, (0, 255, 0), 2)
-            cv2.imshow("Ellipse", elip)
-            #M = cv2.getRotationMatrix2D(center, angle, 1)
-            #imgCor = cv2.warpAffine(imgSmall, M, (cols, rows))
-
-            indi = imgSmall.copy()
-            indi = indi[(cY):(cY + 100), (cX):(cX + 100)]
-            cv2.imshow("Indi", indi)
-
-
-
-
-    cv2.imshow("Centroid", centroid)
-    cv2.imshow("Box", boxing)
-    cv2.imshow("Image Cor", imgCor)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    imgCor = imgSmall
     return imgCor
 
 
@@ -131,7 +57,7 @@ for class_label, defect_type in enumerate(defects):
         
         """
         imgCor = preprocessing(img)
-
+        cv2.imshow("Preprocessed", imgCor)
 
 
 
