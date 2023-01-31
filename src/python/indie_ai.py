@@ -1,6 +1,3 @@
-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
-
-
 from array import array
 from tensorflow import keras
 import tensorflow as tf
@@ -125,7 +122,7 @@ def getRotatetIndi(img, imgBW, template):
         except:
             return indi1
 
-        if res1.any() > res2.any():
+        if res1.max() > res2.max():
             indi = indi1
         else:
             indi = indi2
@@ -163,6 +160,7 @@ class IndieAI:
     def __init__(self, height, width):
         self.width = width;
         self.height = height;
+        self.shape = (self.height,self.width,3)
 
         self.all_images = np.empty([100,height,width,3], dtype='int8') 
         self.all_labels =  np.empty([100, 1])
@@ -175,6 +173,26 @@ class IndieAI:
         self.network = models.Sequential()
 
         print("Constructor")
+
+    def predict_img(self, img):
+        img_proc = preprocessing(img)
+                    
+        if np.any(img_proc):
+            if np.shape(img_proc) != self.shape:
+                print("Other")
+                return
+            
+       
+        test_imgs = np.empty([1,self.height, self.width,3], dtype='int8')
+        test_imgs[0] = img_proc
+        test_imgs = test_imgs.astype('float32') / 255
+
+        pred = self.network.predict(test_imgs)
+        pred = pred * 100
+        np.set_printoptions(precision=0, suppress=True)
+        #print(self.test_labels)
+
+        print(pred)
 
     def train_network(self):
         folders = []
@@ -205,7 +223,7 @@ class IndieAI:
         fails = 0
 
 
-        shape = (self.height,self.width,3)
+       
 
         for folder in os.listdir(directory):
             f = os.path.join(directory, folder)
@@ -229,12 +247,17 @@ class IndieAI:
 
                     #TODO preprocessing 
                     img_proc = preprocessing(img)
-
+                    
                     if np.any(img_proc):
-                        if np.shape(img_proc) != shape:
+                        if np.shape(img_proc) != self.shape:
                            print(np.shape(img_proc)) 
                            continue
                         img = img_proc;
+
+                        # cv2.imshow("test", img_proc)
+                        # cv2.waitKey(0)
+                        # cv2.destroyAllWindows()
+
 
                         if cnt_train < n_train:
                             self.train_images_o[i_train] = img
@@ -280,13 +303,31 @@ class IndieAI:
 
         s = 16
        
-        self.network.add(layers.Conv2D(s, (10,10), activation='relu', input_shape=(self.height,self.width,3)))
+        self.network.add(layers.Conv2D(s, (4,4), activation='relu', input_shape=(self.height,self.width,3)))
         self.network.add(layers.Conv2D(s, (4,4), activation='relu'))
         self.network.add(layers.MaxPooling2D((3,3)))
         self.network.add(layers.Conv2D(4*s, (2,2), activation='tanh'))
         self.network.add(layers.MaxPooling2D((2,2)))
+        self.network.add(layers.Dense(8))
+        self.network.add(layers.Conv2D(s, (4,4), activation='selu'))
+        self.network.add(layers.Conv2D(s, (2,2), activation='tanh'))
+        self.network.add(layers.MaxPooling2D((3,3)))
         self.network.add(layers.Flatten())
+        self.network.add(layers.Dropout(0.5))
         self.network.add(layers.Dense(8, activation='softmax'))
+        
+        # self.network.add(layers.Conv2D(32,(3,3), activation='relu', input_shape=(self.height,self.width,3)))
+        # self.network.add(layers.MaxPool2D((2,2)))
+        # self.network.add(layers.Conv2D(64,(3,3),activation='relu'))
+        # self.network.add(layers.MaxPool2D(2,2))
+        # self.network.add(layers.Conv2D(128,(3,3), activation='relu'))
+        # self.network.add(layers.MaxPool2D(2,2))
+        # self.network.add(layers.Conv2D(128,(3,3), activation='relu'))
+        # self.network.add(layers.MaxPool2D(2,2))
+        # self.network.add(layers.Flatten())
+        # self.network.add(layers.Dropout(0.5))
+        # self.network.add(layers.Dense(512, activation='relu'))
+        # self.network.add(layers.Dense(8, activation='softmax'))
 
         self.network.summary()
 
@@ -294,7 +335,7 @@ class IndieAI:
                         loss='binary_crossentropy',
                         metrics=['accuracy'])
         # know train the model using trainings data
-        history = self.network.fit(train_imgs, self.train_labels, epochs=10, batch_size=8)
+        history = self.network.fit(train_imgs, self.train_labels,epochs=25, batch_size=8)
 
         print("============================")
         print("=== TEST ===================")
@@ -315,24 +356,18 @@ class IndieAI:
         print(self.test_labels)
 
         print(pred)
-     
-    # def predict_image(network, img):
+        print("finished")
+      
 
-    #     print("============================")
-    #     print("=== PREDICT ===================")
-    #     print("============================")
-
-    #     #print(test_imgs)
-    #     pred = network.predict(img)
-    #     pred = pred * 100
-    #     np.set_printoptions(precision=0, suppress=True)
-    #     print(pred)
-
-        # import kerasHelper
-        # kerasHelper.plotAcc(history, smooth=True)
-        # kerasHelper.plotLoss(history, smooth=True)
 
 test = IndieAI(200,124)
 
 test.train_network()
+
+print("--------------")
+
+img = cv2.imread('../../img/Other/image_108.jpg', cv2.IMREAD_COLOR)
+test.predict_img(img)
+
+print("asdf")
 
