@@ -10,8 +10,86 @@ import cvHelper
 # hook here your function to inspect image and return label for the detected defect
 def inspect_image(img, defects):
     img_processed = img
+
     predicted_label = random.randrange(0,7)
     return img_processed, predicted_label
+
+
+
+def preprocessing(img):
+    # perform shading correction
+    cv2.imshow('Original', img)
+    imgCor = utils.shadding(img, imgbackground)
+    cv2.imshow("Shading corrected", imgCor)
+
+    imgGrey = cv2.cvtColor(imgCor, cv2.COLOR_BGR2GRAY)
+    cv2.imshow("Grey", imgGrey)
+
+    #contrast
+
+    img_bw = cv2.threshold(imgGrey, 180, 255, cv2.THRESH_OTSU | cv2.THRESH_BINARY)[1]
+    cv2.imshow("Binary", img_bw)
+
+    # opening and closing
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
+    erosion = cv2.erode(img_bw, kernel, iterations=1, borderType=cv2.BORDER_CONSTANT)
+    cv2.imshow("Erosion", erosion)
+
+    dilation = cv2.dilate(erosion, kernel, iterations=1, borderType=cv2.BORDER_CONSTANT)
+    cv2.imshow("Dilation", dilation)
+
+    opening = cv2.morphologyEx(dilation, cv2.MORPH_OPEN, kernel)
+    cv2.imshow("Opening", opening)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
+    closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
+    cv2.imshow("Closing", closing)
+
+    # find contours in the thresholded image
+    cnts = cv2.findContours(closing.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cvHelper.grab_contours(cnts)
+
+    rows, cols, channels = img.shape
+    # loop over the contours -> we can compute contour porps only for single
+    # contour at a time
+    for c in cnts:
+        centroid = img.copy()
+        M = cv2.moments(c)
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+        # draw the center of the contour on the image
+        cv2.circle(centroid, (cX, cY), 10, (0, 255, 0), -1)
+
+        boxing = img.copy()
+
+        box = cv2.minAreaRect(c)
+        # since in OpenCV's API was a IF break, we must check our CV's version
+        box = np.int0(cv2.cv.BoxPoints(box) if cvHelper.is_cv2() else cv2.boxPoints(box))
+        cv2.drawContours(boxing, [box], -1, (0, 255, 0), 2)
+
+        """
+        # indi shape 200*124
+        if axes[0] > 30 and axes[1] > 80 or axes[0] > 80 and axes[1] > 30:
+            clone = img.copy()
+            cv2.ellipse(clone, ellipse, (255, 255, 0), 2)
+            cv2.circle(clone, center, 10, (0, 255, 0), -1)
+
+            M = cv2.getRotationMatrix2D(center, angle, 1)
+            clone = cv2.warpAffine(clone, M, (cols, rows))
+
+            # show the output image
+            cv2.imshow("Contours", clone)
+
+            indi = cv2.getRectSubPix(clone, (150, 225), center)
+            cv2.imshow("Indi", indi)
+        """
+
+    cv2.imshow("Centroid", centroid)
+    cv2.imshow("Box", boxing)
+
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    return imgCor
 
 
 # read background image for shading correction
@@ -39,11 +117,9 @@ for class_label, defect_type in enumerate(defects):
         """
         ... perform defect detection here
         """
-
-        # perform shading correction
-        imgCor = utils.shadding(img, imgbackground)
-        cv2.imshow("Shading corrected", imgCor)
-
+        imgCor = preprocessing(img)
+        """
+        
         # img cor to grey scale img
         imgCor = cv2.cvtColor(imgCor, cv2.COLOR_BGR2GRAY)
         thresh = cv2.threshold(imgCor, 180, 255, cv2.THRESH_BINARY_INV)[1]
@@ -89,6 +165,7 @@ for class_label, defect_type in enumerate(defects):
         cv2.waitKey(0)
 
         cv2.destroyAllWindows()
+        """
 
         img_processed, predicted_label = inspect_image(imgCor, defects)
         y_pred.append(predicted_label)
