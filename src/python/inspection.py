@@ -24,6 +24,8 @@ def preprocessing(img):
     imgCor = utils.shadding(img, imgbackground)
     cv2.imshow("Shading corrected", imgCor)
 
+    imgSmall = img[26:265, 0:352]
+
     imgGrey = cv2.cvtColor(imgCor[26:265, 0:352], cv2.COLOR_BGR2GRAY)
     cv2.imshow("Grey", imgGrey)
 
@@ -31,11 +33,9 @@ def preprocessing(img):
 
     #contrast
 
-    img_bw = cv2.threshold(imgGrey, 180, 255, cv2.THRESH_OTSU | cv2.THRESH_BINARY)[1]
+    img_bw = cv2.threshold(imgGrey, 180, 255, cv2.THRESH_OTSU | cv2.THRESH_BINARY_INV)[1]
     cv2.imshow("Binary", img_bw)
 
-    # opening and closing
-    """
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
     erosion = cv2.erode(img_bw, kernel, iterations=1, borderType=cv2.BORDER_CONSTANT)
     cv2.imshow("Erosion", erosion)
@@ -47,13 +47,6 @@ def preprocessing(img):
     cv2.imshow("Opening", opening)
 
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
-    closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel)
-    cv2.imshow("Closing", closing)
-    """
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    opening = cv2.morphologyEx(img_bw, cv2.MORPH_OPEN, kernel, iterations=1)
-    cv2.imshow("Opening", opening)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
     closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel, iterations=2)
     cv2.imshow("Closing", closing)
 
@@ -62,40 +55,50 @@ def preprocessing(img):
     cnts = cvHelper.grab_contours(cnts)
 
     for c in cnts:
-        centroid = img.copy()
+        centroid = imgSmall.copy()
         M = cv2.moments(c)
         cX = int(M["m10"] / M["m00"])
         cY = int(M["m01"] / M["m00"])
+
+
+
+
+
+
+
+
         # draw the center of the contour on the image
         cv2.circle(centroid, (cX, cY), 10, (0, 255, 0), -1)
 
-        boxing = img.copy()
+        boxing = imgSmall.copy()
 
         box = cv2.minAreaRect(c)
-        # since in OpenCV's API was a IF break, we must check our CV's version
         box = np.int0(cv2.cv.BoxPoints(box) if cvHelper.is_cv2() else cv2.boxPoints(box))
+
         cv2.drawContours(boxing, [box], -1, (0, 255, 0), 2)
 
-        """
-        # indi shape 200*124
-        if axes[0] > 30 and axes[1] > 80 or axes[0] > 80 and axes[1] > 30:
-            clone = img.copy()
-            cv2.ellipse(clone, ellipse, (255, 255, 0), 2)
-            cv2.circle(clone, center, 10, (0, 255, 0), -1)
+        if len(c) >= 5:
+            elip = imgSmall.copy()
+            cols, rows, channels = imgSmall.shape
 
-            M = cv2.getRotationMatrix2D(center, angle, 1)
-            clone = cv2.warpAffine(clone, M, (cols, rows))
+            ellipse = cv2.fitEllipse(c)
+            center = (cX, cY)
+            angle = int(ellipse[2])
+            cv2.ellipse(elip, ellipse, (0, 255, 0), 2)
+            cv2.imshow("Ellipse", elip)
+            #M = cv2.getRotationMatrix2D(center, angle, 1)
+            #imgCor = cv2.warpAffine(imgSmall, M, (cols, rows))
 
-            # show the output image
-            cv2.imshow("Contours", clone)
-
-            indi = cv2.getRectSubPix(clone, (150, 225), center)
+            indi = imgSmall.copy()
+            indi = indi[(cY):(cY + 100), (cX):(cX + 100)]
             cv2.imshow("Indi", indi)
-        """
+
+
+
 
     cv2.imshow("Centroid", centroid)
     cv2.imshow("Box", boxing)
-
+    cv2.imshow("Image Cor", imgCor)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     return imgCor
@@ -125,55 +128,11 @@ for class_label, defect_type in enumerate(defects):
 
         """
         ... perform defect detection here
-        """
-        #imgCor = preprocessing(img)
-
         
-        # img cor to grey scale img
-        imgCor = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        thresh = cv2.threshold(imgCor, 180, 255, cv2.THRESH_BINARY_INV)[1]
-        cv2.imshow("Threshold Binary", thresh)
-
-        # find contours in the thresholded image
-
-        # opening and closing
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
-        cv2.imshow("Opening", opening)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-        closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel, iterations=2)
-        cv2.imshow("Closing", closing)
+        """
+        imgCor = preprocessing(img)
 
 
-        # find contours in the thresholded image
-        cnts = cv2.findContours(closing.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cnts = cvHelper.grab_contours(cnts)
-
-
-        rows, cols, channels = img.shape
-        # loop over the contours -> we can compute contour porps only for single
-        # contour at a time
-        for c in cnts:
-            ellipse = cv2.fitEllipse(c)
-            center = (int(ellipse[0][0]), int(ellipse[0][1]))
-            angle = int(ellipse[2])
-            axes = (int(ellipse[1][0] / 2), int(ellipse[1][1] / 2))
-
-            # indi shape 200*124
-            if axes[0] > 30 and axes[1] > 80 or axes[0] > 80 and axes[1] > 30:
-                clone = img.copy()
-                cv2.ellipse(clone, ellipse, (255, 255, 0), 2)
-                cv2.circle(clone, center, 10, (0, 255, 0), -1)
-
-                M = cv2.getRotationMatrix2D(center, angle, 1)
-                clone = cv2.warpAffine(clone, M, (cols, rows))
-
-                # show the output image
-                cv2.imshow("Contours", clone)
-
-        cv2.waitKey(0)
-
-        cv2.destroyAllWindows()
 
 
         img_processed, predicted_label = inspect_image(imgCor, defects)
