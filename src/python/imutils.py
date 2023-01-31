@@ -59,10 +59,10 @@ def imclearborder(imgBW, radius):
 
 #### bwareaopen definition
 def bwareaopen(imgBW, areaPixels):
-   """ Removes all connected components (objects) that have fewer than P pixels from the binary image BW, p
-       roducing another binary image, BW2. This operation is known as an area opening. """
+   #""" Removes all connected components (objects) that have fewer than P pixels from the binary image BW, p
+   #    roducing another binary image, BW2. This operation is known as an area opening. """
    imgBWcopy = imgBW.copy()
-   image, contours,hierarchy = cv2.findContours(imgBWcopy.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+   image,contours,hierarchy = cv2.findContours(imgBWcopy.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
    # For each contour, determine its total occupying area
    for idx in np.arange(len(contours)):

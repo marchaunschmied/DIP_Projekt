@@ -29,17 +29,102 @@ def crop_image(img, dim):
     crop_img = img[mid_y - ch2:mid_y + ch2, mid_x - cw2:mid_x + cw2]
     return crop_img
 
-def template_matching(img, temp, method, title=None):
-    # Apply template Matching
-    x, w, h = temp.shape[::-1]
-    res = cv2.matchTemplate(img, temp, method)
-    print("res: ", res)
-    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-    cv2.rectangle(img, max_loc, (max_loc[0] + w, max_loc[1] + h), (255, 255, 0), 15)
-    # plot with plt
-    plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-    plt.title(title)
-    plt.show()
+
+def getBinary(img):
+
+    imgGrey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    #cv2.imshow("Grey", imgGrey)
+
+    img_bw = cv2.threshold(imgGrey, 180, 250, cv2.THRESH_OTSU | cv2.THRESH_BINARY_INV)[1]
+    #cv2.imshow("Binary", img_bw)
+
+    clearBoarder0 = utils.imclearborder(img_bw, 3)
+    #cv2.imshow("Clear Boarder0", clearBoarder0)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+    cl1 = cv2.morphologyEx(clearBoarder0, cv2.MORPH_CLOSE, kernel, iterations=1)
+    #cv2.imshow("CL1", cl1)
+
+
+    clearBoarder1 = utils.imclearborder(cl1, 3)
+    #cv2.imshow("Clear Boarder1", clearBoarder1)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
+    erosion = cv2.erode(clearBoarder1, kernel, iterations=1)
+    #cv2.imshow("Erosion", erosion)
+
+
+    dilation = cv2.dilate(erosion, kernel, iterations=1)
+    #cv2.imshow("Dilation", dilation)
+
+    clearBoarder2 = utils.imclearborder(dilation, 10)
+    #cv2.imshow("Clear Boarder 2", clearBoarder2)
+
+
+    op1 = cv2.morphologyEx(clearBoarder2, cv2.MORPH_OPEN, kernel)
+    #cv2.imshow("OP1", op1)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
+    cl2 = cv2.morphologyEx(op1, cv2.MORPH_CLOSE, kernel, iterations=2)
+    #cv2.imshow("CL2", cl2)
+
+
+#    border = utils.imclearborder(cl1, 10)
+#    cv2.imshow("Border", border)
+    #reopen = utils.bwareaopen(cl1, 10)
+    #cv2.imshow("Reopen", reopen)
+
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
+    return cl2
+
+
+def getRotatetIndi(img, imgBW, template):
+    cnts = cv2.findContours(imgBW.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cvHelper.grab_contours(cnts)
+    elip = img.copy()
+    indi = img.copy()
+    for c in cnts:
+        box = cv2.minAreaRect(c)
+        (bX, bY), (bW, bH), bA = box
+
+        ellipse = cv2.fitEllipse(c)
+        ((cX, cY), (w, h), angle) = ellipse
+
+        cv2.ellipse(elip, ellipse, (0, 255, 0), 2)
+
+        center = (int(cX), int(cY))
+
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        rotated1 = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+        cv2.imshow("Rotated1", rotated1)
+
+        M = cv2.getRotationMatrix2D(center, angle+180, 1.0)
+        rotated2 = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_CUBIC,
+                                  borderMode=cv2.BORDER_REPLICATE)
+        cv2.imshow("Rotated2", rotated2)
+
+
+        indiSize = (124, 200)
+        indi1 = rotated1[int(cY) - int(indiSize[1] / 2):int(cY) + int(indiSize[1] / 2), int(cX) - int(indiSize[0] / 2):int(cX) + int(indiSize[0] / 2)]
+        indi2 = rotated2[int(cY) - int(indiSize[1] / 2):int(cY) + int(indiSize[1] / 2), int(cX) - int(indiSize[0] / 2):int(cX) + int(indiSize[0] / 2)]
+
+        res1 = cv2.matchTemplate(indi1, template, cv2.TM_CCORR_NORMED)
+        res2 = cv2.matchTemplate(indi2, template, cv2.TM_CCORR_NORMED)
+        print("Res1: " + str(res1))
+        print("Res2: " + str(res2))
+
+        if res1 > res2:
+            indi = indi1
+        else:
+            indi = indi2
+
+        cv2.imshow("Indi", indi)
+
+    cv2.imshow("Elip", elip)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    return indi
 
 
 def preprocessing(img):
@@ -50,80 +135,11 @@ def preprocessing(img):
     imgCor = utils.shadding(img, imgbackground)
     cv2.imshow("Shading corrected", imgCor)
 
-    imgGrey = cv2.cvtColor(imgCor, cv2.COLOR_BGR2GRAY)
-    cv2.imshow("Grey", imgGrey)
+    binary = getBinary(imgCor)
 
-    #contrast
+    indi = getRotatetIndi(imgCor, binary, indiTemp)
 
-    img_bw = cv2.threshold(imgGrey, 160, 255, cv2.THRESH_OTSU | cv2.THRESH_BINARY_INV)[1]
-    cv2.imshow("Binary", img_bw)
 
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-    #erosion = cv2.erode(img_bw, kernel, iterations=1, borderType=cv2.BORDER_CONSTANT)
-    #cv2.imshow("Erosion", erosion)
-
-    #dilation = cv2.dilate(erosion, kernel, iterations=1, borderType=cv2.BORDER_CONSTANT)
-    #cv2.imshow("Dilation", dilation)
-
-    opening = cv2.morphologyEx(img_bw, cv2.MORPH_OPEN, kernel)
-    cv2.imshow("Opening", opening)
-
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
-    closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel, iterations=2)
-    cv2.imshow("Closing", closing)
-
-    # find contours in the thresholded image
-    cnts = cv2.findContours(closing.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cnts = cvHelper.grab_contours(cnts)
-    elip = img.copy()
-    centroid = img.copy()
-    boxing = img.copy()
-    for c in cnts:
-
-        box = cv2.minAreaRect(c)
-        (bX, bY), (bW, bH), bA = box
-
-        # compute the center of the contour
-        ellipse = cv2.fitEllipse(c)
-        ((cX, cY), (w, h), angle) = ellipse
-        print("x: ", cX, "y: ", cY, "w: ", w, "h: ", h, "angle: ", angle)
-
-        max = w if w > h else h
-        max = max + 30
-        min = w if w < h else h
-
-        if ((w > 70 and h > 180) or (w > 180 and h > 70)) and ((bW > 70 and bH > 180) or (bW > 180 and bH > 70)):
-            cv2.ellipse(elip, ellipse, (0, 255, 0), 2)
-
-            imgSmall = imgCor[int(cY - max/2):int(cY + max/2), int(cX - max/2):int(cX + max/2)]
-            cv2.imshow("Small", imgSmall)
-
-            centerSmall = (int(max/2), int(max/2))
-
-            M = cv2.getRotationMatrix2D(centerSmall, angle, 1)
-            cols, rows = imgSmall.shape[:2]
-            imgCor = cv2.warpAffine(imgSmall, M, (cols, rows))
-
-            tempX, tempY = indiTemp.shape[:2]
-
-            sH, sW, c = imgCor.shape
-            if sH > 50 and sW > 50:
-
-                indiSmall = crop_image(imgCor, (tempY, tempX))
-                cv2.imshow("indiSmall", indiSmall)
-                res = cv2.matchTemplate(indiSmall, indiTemp, cv2.TM_CCORR_NORMED)
-                print("res: ", res)
-
-                res = cv2.matchTemplate(indiSmall, indiTemp, cv2.TM_CCOEFF_NORMED)
-                print("res: ", res)
-
-                res = cv2.matchTemplate(indiSmall, indiTemp, cv2.TM_SQDIFF_NORMED)
-                print("res: ", res)
-
-    cv2.imshow("Ellipse", elip)
-    cv2.imshow("Image Cor", imgCor)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
     return imgCor
 
 
@@ -131,7 +147,6 @@ def preprocessing(img):
 imgbackground = cv2.imread('../../img/Other/image_100.jpg')
 
 indiTemp = cv2.imread('../../img/templates/template.png')
-
 template, defects = init.initdata()
 
 do_plot = False # Enable plotting of images which are processed
