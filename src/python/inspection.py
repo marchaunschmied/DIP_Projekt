@@ -10,8 +10,24 @@ import cvHelper
 # hook here your function to inspect image and return label for the detected defect
 def inspect_image(img, defects):
     img_processed = img
+
     predicted_label = random.randrange(0,7)
     return img_processed, predicted_label
+
+
+
+def preprocessing(img):
+    # perform shading correction
+
+    cv2.imshow('Original', img)
+
+    imgCor = utils.shadding(img, imgbackground)
+    cv2.imshow("Shading corrected", imgCor)
+
+    imgSmall = imgCor[26:265, 0:352]
+
+    imgCor = imgSmall
+    return imgCor
 
 
 # read background image for shading correction
@@ -38,57 +54,12 @@ for class_label, defect_type in enumerate(defects):
 
         """
         ... perform defect detection here
+        
         """
-
-        # perform shading correction
-        imgCor = utils.shadding(img, imgbackground)
-        cv2.imshow("Shading corrected", imgCor)
-
-        # img cor to grey scale img
-        imgCor = cv2.cvtColor(imgCor, cv2.COLOR_BGR2GRAY)
-        thresh = cv2.threshold(imgCor, 180, 255, cv2.THRESH_BINARY_INV)[1]
-        cv2.imshow("Threshold Binary", thresh)
-
-        # find contours in the thresholded image
-
-        # opening and closing
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
-        cv2.imshow("Opening", opening)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-        closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel, iterations=2)
-        cv2.imshow("Closing", closing)
+        imgCor = preprocessing(img)
+        cv2.imshow("Preprocessed", imgCor)
 
 
-        # find contours in the thresholded image
-        cnts = cv2.findContours(closing.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cnts = cvHelper.grab_contours(cnts)
-
-
-        rows, cols, channels = img.shape
-        # loop over the contours -> we can compute contour porps only for single
-        # contour at a time
-        for c in cnts:
-            ellipse = cv2.fitEllipse(c)
-            center = (int(ellipse[0][0]), int(ellipse[0][1]))
-            angle = int(ellipse[2])
-            axes = (int(ellipse[1][0] / 2), int(ellipse[1][1] / 2))
-
-            # indi shape 200*124
-            if axes[0] > 30 and axes[1] > 80 or axes[0] > 80 and axes[1] > 30:
-                clone = img.copy()
-                cv2.ellipse(clone, ellipse, (255, 255, 0), 2)
-                cv2.circle(clone, center, 10, (0, 255, 0), -1)
-
-                M = cv2.getRotationMatrix2D(center, angle, 1)
-                clone = cv2.warpAffine(clone, M, (cols, rows))
-
-                # show the output image
-                cv2.imshow("Contours", clone)
-
-        cv2.waitKey(0)
-
-        cv2.destroyAllWindows()
 
         img_processed, predicted_label = inspect_image(imgCor, defects)
         y_pred.append(predicted_label)
