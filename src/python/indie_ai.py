@@ -158,6 +158,9 @@ class IndieAI:
     
 
     def __init__(self, height, width):
+
+        self.folders = []
+
         self.width = width;
         self.height = height;
         self.shape = (self.height,self.width,3)
@@ -174,13 +177,32 @@ class IndieAI:
 
         print("Constructor")
 
+    def convertLabel(self,label):
+        match label:
+            case 0: #normal
+                return 7
+            case 1:  # noHat
+                return 3
+            case 2:  # noFace
+                return 4
+            case 3:  # noLeg
+                return 2
+            case 4:  # noBody
+                return 5
+            case 5:  # noHand
+                return 0
+            case 6:  # noHead
+                return 6
+            case 7:  # noArm
+                return 1
+
     def predict_img(self, img):
         img_proc = preprocessing(img)
                     
-        if np.any(img_proc):
-            if np.shape(img_proc) != self.shape:
-                print("Other")
-                return
+        
+        if np.shape(img_proc) != self.shape:
+            #print("Other")
+            return img_proc, 7
             
        
         test_imgs = np.empty([1,self.height, self.width,3], dtype='int8')
@@ -192,10 +214,19 @@ class IndieAI:
         np.set_printoptions(precision=0, suppress=True)
         #print(self.test_labels)
 
-        print(pred)
+        maxIdx = np.argmax(pred);
+
+        predictedLabel = self.convertLabel(maxIdx)
+        #predictedLabel = self.folders[maxIdx]
+        #print(predictedLabel)
+
+        
+
+
+        return img_proc, predictedLabel
 
     def train_network(self):
-        folders = []
+        
 
         #fill train and test images
         # for i in range(self.cnt_img):
@@ -232,7 +263,7 @@ class IndieAI:
             if os.path.isfile(f):
                 print(f)
             else:
-                folders.append(f)
+                self.folders.append(f)
                 #print(folder)
                 if folder == '0-Normal':
                     n_train = 24
@@ -334,8 +365,15 @@ class IndieAI:
         self.network.compile(optimizer='rmsprop',
                         loss='binary_crossentropy',
                         metrics=['accuracy'])
+
+        from keras.utils import plot_model
+        dot_img_file = './model.png'
+        plot_model(self.network, to_file=dot_img_file,
+        show_shapes=True,
+        show_layer_activations=True)
+
         # know train the model using trainings data
-        history = self.network.fit(train_imgs, self.train_labels,epochs=25, batch_size=8)
+        history = self.network.fit(train_imgs, self.train_labels,epochs=40, batch_size=8)
 
         print("============================")
         print("=== TEST ===================")
@@ -357,17 +395,4 @@ class IndieAI:
 
         print(pred)
         print("finished")
-      
-
-
-test = IndieAI(200,124)
-
-test.train_network()
-
-print("--------------")
-
-img = cv2.imread('../../img/Other/image_108.jpg', cv2.IMREAD_COLOR)
-test.predict_img(img)
-
-print("asdf")
 
