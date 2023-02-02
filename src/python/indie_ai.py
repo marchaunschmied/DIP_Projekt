@@ -20,24 +20,8 @@ np_config.enable_numpy_behavior()
 imgbackground = cv2.imread('../../img/Other/image_100.jpg', cv2.IMREAD_COLOR)
 indiTemp = cv2.imread('../../img/templates/template.png', cv2.IMREAD_COLOR)
 
-def crop_image(img, dim):
-    width, height = img.shape[1], img.shape[0]
-    # process crop width and height for max available dimension
-    crop_width = dim[0] if dim[0] < img.shape[1] else img.shape[1]
-    crop_height = dim[1] if dim[1] < img.shape[0] else img.shape[0]
-    mid_x, mid_y = int(width / 2), int(height / 2)
-    cw2, ch2 = int(crop_width / 2), int(crop_height / 2)
-    if mid_y - ch2 < 0:
-        ch2 = mid_y
-    if mid_x - cw2 < 0:
-        cw2 = mid_x
-
-    crop_img = img[mid_y - ch2:mid_y + ch2, mid_x - cw2:mid_x + cw2]
-    return crop_img
-
-
 def getBinary(img):
-
+    # convert to grayscale an do some morphological operations
     imgGrey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     #cv2.imshow("Grey", imgGrey)
 
@@ -70,15 +54,10 @@ def getBinary(img):
     op1 = cv2.morphologyEx(clearBoarder2, cv2.MORPH_OPEN, kernel)
     #cv2.imshow("OP1", op1)
 
+    #last closing with big kernel close the hole between the body and the head
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20, 20))
     cl2 = cv2.morphologyEx(op1, cv2.MORPH_CLOSE, kernel, iterations=2)
     #cv2.imshow("CL2", cl2)
-
-
-#    border = utils.imclearborder(cl1, 10)
-#    cv2.imshow("Border", border)
-    #reopen = utils.bwareaopen(cl1, 10)
-    #cv2.imshow("Reopen", reopen)
 
     #cv2.waitKey(0)
     #cv2.destroyAllWindows()
@@ -86,25 +65,31 @@ def getBinary(img):
 
 
 def getRotatetIndi(img, imgBW, template):
+
     cnts = cv2.findContours(imgBW.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = cvHelper.grab_contours(cnts)
     elip = img.copy()
     indi = img.copy()
     for c in cnts:
+        #draw box and ellipse around the contour
         box = cv2.minAreaRect(c)
         (bX, bY), (bW, bH), bA = box
 
         ellipse = cv2.fitEllipse(c)
         ((cX, cY), (w, h), angle) = ellipse
 
+        #only one contour in all images -> no check for width and height needed
+
         cv2.ellipse(elip, ellipse, (0, 255, 0), 2)
 
         center = (int(cX), int(cY))
+
 
         M = cv2.getRotationMatrix2D(center, angle, 1.0)
         rotated1 = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
         #cv2.imshow("Rotated1", rotated1)
 
+        #rotate indi 180° to get both sides -> get correct side via template matching
         M = cv2.getRotationMatrix2D(center, angle+180, 1.0)
         rotated2 = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_CUBIC,
                                   borderMode=cv2.BORDER_REPLICATE)
@@ -141,11 +126,14 @@ def preprocessing(img):
 
     #cv2.imshow('Original', img)
 
+    #shadding correction
     imgCor = utils.shadding(img, imgbackground)
     #cv2.imshow("Shading corrected", imgCor)
 
+    #get binary from image with cleared borders (only indi should be in binary)
     binary = getBinary(imgCor)
 
+    #get rotated indi
     indi = getRotatetIndi(imgCor, binary, indiTemp)
 
     #cv2.imshow("indi",indi) 
