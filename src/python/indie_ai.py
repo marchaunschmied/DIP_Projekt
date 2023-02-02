@@ -12,6 +12,7 @@ from tensorflow.python.ops.numpy_ops import np_config
 from keras import models, layers
 from keras.utils import to_categorical
 import imutils as utils
+from matplotlib import pyplot as plt
 
 np_config.enable_numpy_behavior()
 
@@ -374,6 +375,16 @@ class IndieAI:
 
         # know train the model using trainings data
         history = self.network.fit(train_imgs, self.train_labels,epochs=40, batch_size=8)
+
+        epochs = range(1, len(history.history['accuracy']) + 1)
+        plt.plot(history.history['accuracy'], 'bo', label="accuracy")
+        plt.plot(history.history['loss'], 'b', label="loss")
+        plt.title('Training acc and loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Acc & Loss')
+        plt.legend()
+        plt.show()
+        
 
         print("============================")
         print("=== TEST ===================")
